@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión Cocina - Compra</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f7f7f7; }
+    header { background: #3f51b5; color: white; padding: 24px 16px; text-align: center; }
+    #categoryBar { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 12px; padding: 16px; max-width: 800px; margin: 0 auto; }
+    .categoryBtn { padding: 16px; border: none; border-radius: 12px; cursor: pointer; background: #ffffff; color: #333; box-shadow: 0 3px 10px rgba(0,0,0,.13); transition: .2s; font-size: 1.1rem; font-weight: bold; }
+    .categoryBtn.active { background: #3f51b5; color: white; }
+    #productView { max-width: 900px; margin: 0 auto 80px; padding: 16px; display: none; }
+    #productView.visible { display: block; }
+    #shoppingList { max-width: 900px; margin: 0 auto 80px; padding: 16px; display: none; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+    #shoppingList.visible { display: block; }
+    #shoppingItems { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 0; padding: 0; }
+    #shoppingItems li { list-style: none; background: #fff; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.12); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    #shoppingItems li .shopping-info { display: flex; flex-direction: column; gap: 4px; }
+    #shoppingItems li .shopping-info strong { font-size: 1.03rem; }
+    #shoppingItems li .shopping-actions { align-self: flex-end; }
+    #shoppingItems li.comprado { opacity: 0.6; text-decoration: line-through; }
+    .section-title { margin: 8px 0; }
+    .products-section h3 { margin: 16px 0 8px; }
+    #availableList, #missingList { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 0; padding: 0; }
+    #availableList li, #missingList li { list-style: none; background: #fff; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.12); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    #availableList li .product-info, #missingList li .product-info { display: flex; flex-direction: column; gap: 4px; }
+    #availableList li .product-info strong, #missingList li .product-info strong { font-size: 1.03rem; }
+    #availableList li .product-actions, #missingList li .product-actions { align-self: flex-end; }
+    #availableList li:last-child, #missingList li:last-child { border-bottom: none; }
+    button.actionDel { background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor:pointer; }
+    #status { margin-top: 8px; font-weight: bold; }
+    #fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #3f51b5; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); }
+    #toggleShoppingList { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #ff9800; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); }
+    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); display: none; }
+    #overlay.visible { display: block; }
+    #productModal { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 94%; max-width: 440px; background: white; border-radius: 12px 12px 0 0; padding: 16px; box-shadow: 0 -6px 18px rgba(0,0,0,.3); display: none; }
+    #productModal.visible { display: block; }
+    #productModal h3 { margin-top: 0; }
+    #productModal label { display:block; margin: 8px 0 4px; }
+    #productModal input{ width:100%; padding:8px; border:1px solid #ccc; border-radius:5px; }
+    #productModal button { margin-top:12px; padding: 10px 14px; border-radius: 6px; border:none; font-weight:bold; }
+    #productModal button[type="submit"] { background:#4caf50; color:white; }
+    .quantity-btn {
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 8px;
+      transition: background 0.2s;
+    }
+    .minus-btn { background: #f44336; color: white; }
+    .minus-btn:hover { background: #d32f2f; }
+    .plus-btn { background: #4caf50; color: white; }
+    .plus-btn:hover { background: #45a049; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 style="margin:0; font-size:2rem;">Inventario de Cocina</h1>
+    <p style="margin:6px 0 0; font-size:1rem;">Elige una categoría para ver y gestionar productos</p>
+  </header>
+  <section id="categoryBar"></section>
+
+  <section id="shoppingList" class="hidden">
+    <h2>Lista de la Compra</h2>
+    <ul id="shoppingItems"></ul>
+    <button id="clearList" style="margin-top:12px; background:#d32f2f; color:white; border:none; padding:10px 16px; border-radius:6px; cursor:pointer;">Limpiar lista</button>
+  </section>
+
+  <section id="productView" class="hidden">
+    <h2 id="selectedCategoryTitle" class="section-title">Categoría</h2>
+    <p id="status">Cargando...</p>
+    <div class="products-section">
+      <h3>Productos disponibles</h3>
+      <ul id="availableList"></ul>
+    </div>
+    <div class="products-section">
+      <h3>Productos faltantes</h3>
+      <ul id="missingList"></ul>
+    </div>
+  </section>
+
+  <button id="fab">+</button>
+  <button id="toggleShoppingList">🛒</button>
+
+  <div id="overlay" class="hidden"></div>
+  <div id="productModal" class="hidden">
+    <h3>Añadir producto</h3>
+    <form id="addForm">
+      <label for="productName">Nombre del producto</label>
+      <input type="text" id="productName" required />
+      <input type="hidden" id="productCategory" value="" />
+      <button type="submit">Guardar</button>
+      <button type="button" id="closeModal" style="margin-left:8px; background:#999;">Cancelar</button>
+    </form>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script>
+    // Configuración de Firebase (Realtime Database)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHY1xERvfiCQgFUqSWD0KUuYbtL6GpQos",
+      authDomain: "lista-de-la-compra-4926b.firebaseapp.com",
+      databaseURL: "https://lista-de-la-compra-4926b-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "lista-de-la-compra-4926b",
+      storageBucket: "lista-de-la-compra-4926b.firebasestorage.app",
+      messagingSenderId: "815749778126",
+      appId: "1:815749778126:android:137b245485dc89f1d01e9f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const categories = ["Despensa", "Nevera", "Congelador", "Limpieza"];
+    let selectedCategory = null;
+
+    const categoryBar = document.getElementById('categoryBar');
+    const productView = document.getElementById('productView');
+    const availableList = document.getElementById('availableList');
+    const missingList = document.getElementById('missingList');
+    const selectedCategoryTitle = document.getElementById('selectedCategoryTitle');
+    const status = document.getElementById('status');
+    const form = document.getElementById('addForm');
+    const fab = document.getElementById('fab');
+    const overlay = document.getElementById('overlay');
+    const productModal = document.getElementById('productModal');
+    const hiddenCategory = document.getElementById('productCategory');
+    const shoppingList = document.getElementById('shoppingList');
+    const shoppingItems = document.getElementById('shoppingItems');
+    const toggleShoppingList = document.getElementById('toggleShoppingList');
+
+    function openModal() {
+      if (!selectedCategory) {
+        alert('Selecciona primero una categoría.');
+        return;
+      }
+      hiddenCategory.value = selectedCategory;
+      overlay.classList.add('visible');
+      productModal.classList.add('visible');
+    }
+
+    function closeModal() {
+      overlay.classList.remove('visible');
+      productModal.classList.remove('visible');
+      form.reset();
+    }
+
+    fab.addEventListener('click', openModal);
+    overlay.addEventListener('click', closeModal);
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    toggleShoppingList.addEventListener('click', () => {
+      shoppingList.classList.toggle('visible');
+    });
+    document.getElementById('clearList').addEventListener('click', clearShoppingList);
+
+    function renderCategoryButtons() {
+      categoryBar.innerHTML = '';
+      categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.textContent = cat;
+        btn.className = 'categoryBtn' + (cat === selectedCategory ? ' active' : '');
+        btn.onclick = () => selectCategory(cat);
+        categoryBar.appendChild(btn);
+      });
+    }
+
+    function loadProducts() {
+      if (!selectedCategory) {
+        availableList.innerHTML = '';
+        missingList.innerHTML = '';
+        selectedCategoryTitle.textContent = 'Selecciona una categoría';
+        status.textContent = 'Sin categoría seleccionada.';
+        return;
+      }
+
+      selectedCategoryTitle.textContent = '';
+      availableList.innerHTML = '';
+      missingList.innerHTML = '';
+
+      db.ref('productos').orderByChild('categoria').equalTo(selectedCategory).once('value')
+        .then(snapshot => {
+          const products = [];
+          snapshot.forEach(item => {
+            products.push({ id: item.key, ...item.val() });
+          });
+
+          if (!products.length) {
+            status.textContent = '';
+            return;
+          }
+
+          products.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+          const available = products.filter(p => p.cantidad > 0);
+          const missing = products.filter(p => p.cantidad <= 0);
+
+          if (available.length === 0) {
+            availableList.innerHTML = '<li>No hay productos disponibles.</li>';
+          } else {
+            available.forEach(prod => availableList.appendChild(createProductCard(prod)));
+          }
+
+          if (missing.length === 0) {
+            missingList.innerHTML = '<li>No hay productos faltantes.</li>';
+          } else {
+            missing.forEach(prod => missingList.appendChild(createProductCard(prod)));
+          }
+        })
+        .catch(error => {
+          status.textContent = 'Error cargando productos: ' + error.message;
+          console.error(error);
+        });
+    }
+
+    function createProductCard(prod) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="product-info">
+          <strong>${prod.nombre}</strong>
+          <span id="qty-${prod.id}">${prod.cantidad}</span>
+        </div>
+        <div class="product-actions"></div>
+      `;
+
+      const actions = li.querySelector('.product-actions');
+      const minusBtn = document.createElement('button');
+      minusBtn.textContent = '-';
+      minusBtn.className = 'quantity-btn minus-btn';
+      minusBtn.onclick = () => updateQuantity(prod.id, prod.cantidad - 1);
+
+      const plusBtn = document.createElement('button');
+      plusBtn.textContent = '+';
+      plusBtn.className = 'quantity-btn plus-btn';
+      plusBtn.onclick = () => updateQuantity(prod.id, prod.cantidad + 1);
+
+      const del = document.createElement('button');
+      del.className = 'actionDel';
+      del.textContent = 'Eliminar';
+      del.onclick = () => deleteProduct(prod.id);
+
+      actions.appendChild(minusBtn);
+      actions.appendChild(plusBtn);
+      actions.appendChild(del);
+
+      const cartBtn = document.createElement('button');
+      cartBtn.textContent = '🛒';
+      cartBtn.title = 'Añadir a lista de compra';
+      cartBtn.style.background = '#ff9800';
+      cartBtn.style.color = 'white';
+      cartBtn.style.border = 'none';
+      cartBtn.style.borderRadius = '6px';
+      cartBtn.style.padding = '6px 10px';
+      cartBtn.style.cursor = 'pointer';
+      cartBtn.onclick = () => addToShoppingList(prod);
+      actions.appendChild(cartBtn);
+
+      return li;
+    }
+
+    function selectCategory(category) {
+      selectedCategory = category;
+      renderCategoryButtons();
+      productView.classList.add('visible');
+      selectedCategoryTitle.textContent = '';
+      hiddenCategory.value = category;
+      loadProducts();
+    }
+
+    function addProduct(event) {
+      event.preventDefault();
+      const nombre = document.getElementById('productName').value.trim();
+      const categoria = document.getElementById('productCategory').value;
+
+      if (!nombre || !categoria) {
+        status.textContent = 'Completa el nombre del producto.';
+        return;
+      }
+
+      const newProdRef = db.ref('productos').push();
+      newProdRef.set({
+        nombre,
+        cantidad: 1,
+        expiracion: null,
+        categoria,
+        creadoEn: firebase.database.ServerValue.TIMESTAMP
+      })
+      .then(() => {
+        status.textContent = `Producto "${nombre}" agregado en ${categoria}.`;
+        form.reset();
+        if (selectedCategory === categoria) loadProducts();
+      })
+      .catch(error => {
+        status.textContent = 'Error añadiendo producto: ' + error.message;
+        console.error(error);
+      });
+    }
+
+    function deleteProduct(id) {
+      if (!confirm('¿Eliminar producto?')) return;
+      db.ref('productos/' + id).remove()
+        .then(() => {
+          status.textContent = 'Producto eliminado.';
+          loadProducts();
+        })
+        .catch(error => {
+          status.textContent = 'Error eliminando producto: ' + error.message;
+          console.error(error);
+        });
+    }
+
+    function updateQuantity(id, newQuantity) {
+      if (newQuantity < 0) return;
+      db.ref('productos/' + id).update({ cantidad: newQuantity })
+        .then(() => {
+          status.textContent = 'Cantidad actualizada.';
+          loadProducts();
+        })
+        .catch(error => {
+          status.textContent = 'Error actualizando cantidad: ' + error.message;
+          console.error(error);
+        });
+    }
+
+    function loadShoppingList() {
+      const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+      shoppingItems.innerHTML = '';
+      list.forEach(item => {
+        const li = document.createElement('li');
+        if (item.comprado) li.classList.add('comprado');
+        li.innerHTML = `
+          <div class="shopping-info">
+            <strong>${item.nombre}</strong>
+            <span>${item.categoria}</span>
+          </div>
+          <div class="shopping-actions"></div>
+        `;
+
+        const actions = li.querySelector('.shopping-actions');
+        const checkBtn = document.createElement('button');
+        checkBtn.textContent = '✓';
+        checkBtn.title = 'Marcar como comprado';
+        checkBtn.style.background = item.comprado ? '#4caf50' : '#ccc';
+        checkBtn.style.color = 'white';
+        checkBtn.style.border = 'none';
+        checkBtn.style.borderRadius = '6px';
+        checkBtn.style.padding = '6px 10px';
+        checkBtn.style.cursor = 'pointer';
+        checkBtn.onclick = () => toggleComprado(item.id);
+        actions.appendChild(checkBtn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Quitar';
+        removeBtn.style.background = '#d32f2f';
+        removeBtn.style.color = 'white';
+        removeBtn.style.border = 'none';
+        removeBtn.style.padding = '6px 10px';
+        removeBtn.style.borderRadius = '6px';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.marginLeft = '8px';
+        removeBtn.onclick = () => removeFromShoppingList(item.id);
+        actions.appendChild(removeBtn);
+
+        shoppingItems.appendChild(li);
+      });
+    }
+
+    function addToShoppingList(prod) {
+      const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+      if (!list.find(item => item.id === prod.id)) {
+        list.push({ id: prod.id, nombre: prod.nombre, categoria: prod.categoria, comprado: false });
+        localStorage.setItem('shoppingList', JSON.stringify(list));
+        loadShoppingList();
+        status.textContent = `Producto "${prod.nombre}" añadido a la lista de compra.`;
+      } else {
+        status.textContent = 'Producto ya en la lista.';
+      }
+    }
+
+    function removeFromShoppingList(id) {
+      const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+      const newList = list.filter(item => item.id !== id);
+      localStorage.setItem('shoppingList', JSON.stringify(newList));
+      loadShoppingList();
+      status.textContent = 'Producto quitado de la lista.';
+    }
+
+    function toggleComprado(id) {
+      const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+      const item = list.find(i => i.id === id);
+      if (item) {
+        item.comprado = !item.comprado;
+        localStorage.setItem('shoppingList', JSON.stringify(list));
+        loadShoppingList();
+        status.textContent = item.comprado ? 'Marcado como comprado.' : 'Desmarcado.';
+      }
+    }
+
+    function clearShoppingList() {
+      localStorage.removeItem('shoppingList');
+      loadShoppingList();
+      status.textContent = 'Lista de compra limpiada.';
+    }
+
+    form.addEventListener('submit', addProduct);
+
+    renderCategoryButtons();
+    loadShoppingList();
+    status.textContent = '';
+  </script>
+</body>
+</html>
