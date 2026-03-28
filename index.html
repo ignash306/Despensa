@@ -34,6 +34,10 @@
     #toggleShoppingList { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #ff9800; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); }
     #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); display: none; }
     #overlay.visible { display: block; }
+    #deleteOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); display: none; }
+    #deleteOverlay.visible { display: block; }
+    #deleteModal { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 94%; max-width: 500px; background: white; border-radius: 12px 12px 0 0; padding: 16px; box-shadow: 0 -6px 18px rgba(0,0,0,.3); display: none; max-height: 90vh; overflow-y: auto; }
+    #deleteModal.visible { display: block; }
     #productModal { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 94%; max-width: 440px; background: white; border-radius: 12px 12px 0 0; padding: 16px; box-shadow: 0 -6px 18px rgba(0,0,0,.3); display: none; }
     #productModal.visible { display: block; }
     #productModal h3 { margin-top: 0; }
@@ -88,7 +92,16 @@
   </section>
 
   <button id="fab">+</button>
+  <button id="deleteProductBtn" style="position: fixed; bottom: 140px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #d32f2f; color: white; font-size: 1.5rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3);">🗑️</button>
   <button id="toggleShoppingList">🛒</button>
+
+  <div id="deleteOverlay"></div>
+  <div id="deleteModal">
+    <h3 style="margin-top: 0;">Eliminar producto</h3>
+    <p style="margin: 0 0 12px; font-size: 0.9rem; color: #666;">Selecciona un producto para eliminarlo.</p>
+    <div id="deleteProductGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;"></div>
+    <button id="closeDeleteModal" style="width: 100%; background: #999; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">Cerrar</button>
+  </div>
 
   <div id="overlay" class="hidden"></div>
   <div id="productModal" class="hidden">
@@ -96,6 +109,10 @@
     <form id="addForm">
       <label for="productName">Nombre del producto</label>
       <input type="text" id="productName" required />
+      <label for="productImage">Imagen del producto (opcional)</label>
+      <input type="file" id="productImage" accept="image/*" />
+      <div id="imagePreview" style="margin-top:8px;"></div>
+      <input type="hidden" id="productImageData" value="" />
       <input type="hidden" id="productCategory" value="" />
       <button type="submit">Guardar</button>
       <button type="button" id="closeModal" style="margin-left:8px; background:#999;">Cancelar</button>
@@ -136,6 +153,11 @@
     const shoppingList = document.getElementById('shoppingList');
     const shoppingItems = document.getElementById('shoppingItems');
     const toggleShoppingList = document.getElementById('toggleShoppingList');
+    const deleteProductBtn = document.getElementById('deleteProductBtn');
+    const deleteOverlay = document.getElementById('deleteOverlay');
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteProductGrid = document.getElementById('deleteProductGrid');
+    const closeDeleteModal = document.getElementById('closeDeleteModal');
 
     function openModal() {
       if (!selectedCategory) {
@@ -156,10 +178,28 @@
     fab.addEventListener('click', openModal);
     overlay.addEventListener('click', closeModal);
     document.getElementById('closeModal').addEventListener('click', closeModal);
+
+    document.getElementById('productImage').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imageData = event.target.result;
+          document.getElementById('productImageData').value = imageData;
+          const preview = document.getElementById('imagePreview');
+          preview.innerHTML = `<img src="${imageData}" style="width:100%; max-height:150px; border-radius:8px;">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
     toggleShoppingList.addEventListener('click', () => {
       shoppingList.classList.toggle('visible');
     });
     document.getElementById('clearList').addEventListener('click', clearShoppingList);
+
+    deleteProductBtn.addEventListener('click', openDeleteModal);
+    deleteOverlay.addEventListener('click', closeDeleteProductModal);
+    closeDeleteModal.addEventListener('click', closeDeleteProductModal);
 
     function renderCategoryButtons() {
       categoryBar.innerHTML = '';
@@ -223,6 +263,7 @@
     function createProductCard(prod) {
       const li = document.createElement('li');
       li.innerHTML = `
+        ${prod.imagen ? `<img src="${prod.imagen}" alt="${prod.nombre}" style="width:100%; height:auto; border-radius:8px; margin-bottom:8px;">` : ''}
         <div class="product-info">
           <strong>${prod.nombre}</strong>
           <span id="qty-${prod.id}">${prod.cantidad}</span>
@@ -241,14 +282,8 @@
       plusBtn.className = 'quantity-btn plus-btn';
       plusBtn.onclick = () => updateQuantity(prod.id, prod.cantidad + 1);
 
-      const del = document.createElement('button');
-      del.className = 'actionDel';
-      del.textContent = 'Eliminar';
-      del.onclick = () => deleteProduct(prod.id);
-
       actions.appendChild(minusBtn);
       actions.appendChild(plusBtn);
-      actions.appendChild(del);
 
       const cartBtn = document.createElement('button');
       cartBtn.textContent = '🛒';
@@ -277,6 +312,7 @@
     function addProduct(event) {
       event.preventDefault();
       const nombre = document.getElementById('productName').value.trim();
+      const imagen = document.getElementById('productImageData').value || null;
       const categoria = document.getElementById('productCategory').value;
 
       if (!nombre || !categoria) {
@@ -290,11 +326,13 @@
         cantidad: 1,
         expiracion: null,
         categoria,
+        imagen,
         creadoEn: firebase.database.ServerValue.TIMESTAMP
       })
       .then(() => {
         status.textContent = `Producto "${nombre}" agregado en ${categoria}.`;
         form.reset();
+        document.getElementById('imagePreview').innerHTML = '';
         if (selectedCategory === categoria) loadProducts();
       })
       .catch(error => {
@@ -336,6 +374,7 @@
         const li = document.createElement('li');
         if (item.comprado) li.classList.add('comprado');
         li.innerHTML = `
+          ${item.imagen ? `<img src="${item.imagen}" alt="${item.nombre}" style="width:100%; height:auto; border-radius:8px; margin-bottom:8px;">` : ''}
           <div class="shopping-info">
             <strong>${item.nombre}</strong>
             <span>${item.categoria}</span>
@@ -375,7 +414,7 @@
     function addToShoppingList(prod) {
       const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
       if (!list.find(item => item.id === prod.id)) {
-        list.push({ id: prod.id, nombre: prod.nombre, categoria: prod.categoria, comprado: false });
+        list.push({ id: prod.id, nombre: prod.nombre, categoria: prod.categoria, imagen: prod.imagen, comprado: false });
         localStorage.setItem('shoppingList', JSON.stringify(list));
         loadShoppingList();
         status.textContent = `Producto "${prod.nombre}" añadido a la lista de compra.`;
@@ -407,6 +446,74 @@
       localStorage.removeItem('shoppingList');
       loadShoppingList();
       status.textContent = 'Lista de compra limpiada.';
+    }
+
+    function openDeleteModal() {
+      if (!selectedCategory) {
+        alert('Selecciona primero una categoría.');
+        return;
+      }
+      db.ref('productos').orderByChild('categoria').equalTo(selectedCategory).once('value')
+        .then(snapshot => {
+          const products = [];
+          snapshot.forEach(item => {
+            products.push({ id: item.key, nombre: item.val().nombre, imagen: item.val().imagen });
+          });
+          deleteProductGrid.innerHTML = '';
+          products.sort((a, b) => a.nombre.localeCompare(b.nombre));
+          
+          if (products.length === 0) {
+            deleteProductGrid.innerHTML = '<p>No hay productos en esta categoría.</p>';
+          } else {
+            products.forEach(prod => {
+              const card = document.createElement('div');
+              card.style.background = '#fff';
+              card.style.borderRadius = '10px';
+              card.style.boxShadow = '0 1px 6px rgba(0,0,0,.12)';
+              card.style.padding = '10px';
+              card.style.display = 'flex';
+              card.style.flexDirection = 'column';
+              card.style.gap = '8px';
+              card.style.alignItems = 'center';
+              card.innerHTML = `
+                ${prod.imagen ? `<img src="${prod.imagen}" alt="${prod.nombre}" style="width:100%; height:auto; border-radius:8px; max-height:120px;">` : ''}
+                <strong style="text-align: center;">${prod.nombre}</strong>
+              `;
+              const delBtn = document.createElement('button');
+              delBtn.textContent = 'Eliminar';
+              delBtn.style.background = '#d32f2f';
+              delBtn.style.color = 'white';
+              delBtn.style.border = 'none';
+              delBtn.style.padding = '8px 12px';
+              delBtn.style.borderRadius = '6px';
+              delBtn.style.cursor = 'pointer';
+              delBtn.style.width = '100%';
+              delBtn.onclick = () => performDelete(prod.id, prod.nombre);
+              card.appendChild(delBtn);
+              deleteProductGrid.appendChild(card);
+            });
+          }
+          deleteOverlay.classList.add('visible');
+          deleteModal.classList.add('visible');
+        });
+    }
+
+    function closeDeleteProductModal() {
+      deleteOverlay.classList.remove('visible');
+      deleteModal.classList.remove('visible');
+    }
+
+    function performDelete(id, nombre) {
+      db.ref('productos/' + id).remove()
+        .then(() => {
+          status.textContent = 'Producto eliminado.';
+          closeDeleteProductModal();
+          loadProducts();
+        })
+        .catch(error => {
+          status.textContent = 'Error eliminando producto: ' + error.message;
+          console.error(error);
+        });
     }
 
     form.addEventListener('submit', addProduct);
