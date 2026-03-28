@@ -262,6 +262,10 @@
 
     function createProductCard(prod) {
       const li = document.createElement('li');
+      li.id = `product-card-${prod.id}`;
+      li.dataset.productId = prod.id;
+      li.dataset.quantity = prod.cantidad;
+      li.dataset.category = prod.categoria;
       li.innerHTML = `
         ${prod.imagen ? `<img src="${prod.imagen}" alt="${prod.nombre}" style="width:100%; height:auto; border-radius:8px; margin-bottom:8px;">` : ''}
         <div class="product-info">
@@ -275,12 +279,16 @@
       const minusBtn = document.createElement('button');
       minusBtn.textContent = '-';
       minusBtn.className = 'quantity-btn minus-btn';
-      minusBtn.onclick = () => updateQuantity(prod.id, prod.cantidad - 1);
+      minusBtn.onclick = () => {
+        updateQuantity(prod.id, -1);
+      };
 
       const plusBtn = document.createElement('button');
       plusBtn.textContent = '+';
       plusBtn.className = 'quantity-btn plus-btn';
-      plusBtn.onclick = () => updateQuantity(prod.id, prod.cantidad + 1);
+      plusBtn.onclick = () => {
+        updateQuantity(prod.id, 1);
+      };
 
       actions.appendChild(minusBtn);
       actions.appendChild(plusBtn);
@@ -354,16 +362,50 @@
         });
     }
 
-    function updateQuantity(id, newQuantity) {
+    function updateQuantity(id, delta) {
+      const card = document.getElementById(`product-card-${id}`);
+      if (!card) return;
+
+      const qtySpan = card.querySelector(`#qty-${id}`);
+      const currentQty = Number(qtySpan ? qtySpan.textContent : card.dataset.quantity || 0);
+      const newQuantity = currentQty + delta;
       if (newQuantity < 0) return;
+
+      const minusBtn = card.querySelector('.minus-btn');
+      const plusBtn = card.querySelector('.plus-btn');
+      if (minusBtn) minusBtn.disabled = true;
+      if (plusBtn) plusBtn.disabled = true;
+
       db.ref('productos/' + id).update({ cantidad: newQuantity })
         .then(() => {
+          const qtySpan2 = card.querySelector(`#qty-${id}`);
+          if (qtySpan2) qtySpan2.textContent = newQuantity;
+          card.dataset.quantity = newQuantity;
+
+          const sourceList = card.closest('ul');
+          const targetList = newQuantity > 0 ? availableList : missingList;
+
+          if (sourceList && sourceList !== targetList) {
+            sourceList.removeChild(card);
+            if (targetList.children.length === 1 && targetList.children[0].textContent.includes('No hay productos')) {
+              targetList.innerHTML = '';
+            }
+            targetList.appendChild(card);
+
+            if (sourceList.children.length === 0) {
+              sourceList.innerHTML = `<li>No hay productos ${sourceList === availableList ? 'disponibles' : 'faltantes'}.</li>`;
+            }
+          }
+
           status.textContent = 'Cantidad actualizada.';
-          loadProducts();
         })
         .catch(error => {
           status.textContent = 'Error actualizando cantidad: ' + error.message;
           console.error(error);
+        })
+        .finally(() => {
+          if (minusBtn) minusBtn.disabled = false;
+          if (plusBtn) plusBtn.disabled = false;
         });
     }
 
