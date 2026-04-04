@@ -9,7 +9,7 @@
     h2, h3 { color: #ffffff; }
     p { color: #e0e0e0; }
     header { background: #1f1f1f; color: white; padding: 24px 16px; text-align: center; border-bottom: 2px solid #3f51b5; }
-    #categoryBar { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 12px; padding: 16px; max-width: 800px; margin: 0 auto; }
+    #categoryBar { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; padding: 16px; max-width: 800px; margin: 0 auto; }
     .categoryBtn { padding: 16px; border: none; border-radius: 12px; cursor: pointer; background: #2a2a2a; color: #e0e0e0; box-shadow: 0 3px 10px rgba(0,0,0,.5); transition: .2s; font-size: 1.1rem; font-weight: bold; }
     .categoryBtn.active { background: #3f51b5; color: white; }
     #productView { max-width: 900px; margin: 0 auto 80px; padding: 16px; display: none; }
@@ -67,6 +67,20 @@
     .plus-btn:hover { background: #45a049; }
     #uploadImageBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
     #uploadImageBtn:active { transform: translateY(0); }
+    #recipeModal, #recipeDetailModal { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 94%; max-width: 500px; background: #1f1f1f; border-radius: 12px 12px 0 0; padding: 16px; box-shadow: 0 -6px 18px rgba(0,0,0,.3); display: none; color: #e0e0e0; }
+    #recipeModal.visible, #recipeDetailModal.visible { display: block; }
+    #recipeModal h3, #recipeDetailModal h3 { margin-top: 0; color: #ffffff; }
+    #recipeModal label { display:block; margin: 8px 0 4px; color: #e0e0e0; }
+    #recipeModal input, #recipeModal textarea { width:100%; padding:8px; border:1px solid #444; border-radius:5px; background: #2a2a2a; color: #e0e0e0; }
+    #recipeModal button { margin-top:12px; padding: 10px 14px; border-radius: 6px; border:none; font-weight:bold; }
+    #recipeModal button[type="submit"] { background:#4caf50; color:white; }
+    #recipeList li { list-style: none; background: #2a2a2a; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.5); padding: 16px; cursor: pointer; transition: transform 0.2s; }
+    #recipeList li:hover { transform: translateY(-2px); }
+    #recipeList li h4 { margin: 0 0 8px; color: #ffffff; }
+    #recipeList li p { margin: 0; color: #e0e0e0; }
+    #recipeDetailContent { margin-top: 16px; }
+    #recipeDetailContent ul { list-style: disc; padding-left: 20px; }
+    #recipeDetailContent li { color: #e0e0e0; }
   </style>
 </head>
 <body>
@@ -92,6 +106,12 @@
       <h3>Productos faltantes</h3>
       <ul id="missingList"></ul>
     </div>
+  </section>
+
+  <section id="recipeView" class="hidden">
+    <h2>Recetas</h2>
+    <p id="recipeStatus">Cargando...</p>
+    <ul id="recipeList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 0; padding: 0;"></ul>
   </section>
 
   <button id="fab">+</button>
@@ -123,6 +143,26 @@
     </form>
   </div>
 
+  <div id="recipeModal" class="hidden">
+    <h3>Crear Receta</h3>
+    <form id="addRecipeForm">
+      <label for="recipeName">Nombre de la receta</label>
+      <input type="text" id="recipeName" required />
+      <label for="recipeDescription">Descripción</label>
+      <textarea id="recipeDescription" rows="3" style="width:100%; padding:8px; border:1px solid #444; border-radius:5px; background: #2a2a2a; color: #e0e0e0;"></textarea>
+      <label>Seleccionar productos</label>
+      <div id="productSelector" style="max-height: 200px; overflow-y: auto; border: 1px solid #444; padding: 8px; border-radius: 5px; background: #2a2a2a;"></div>
+      <button type="submit">Guardar Receta</button>
+      <button type="button" id="closeRecipeModal" style="margin-left:8px; background:#555; color: white;">Cancelar</button>
+    </form>
+  </div>
+
+  <div id="recipeDetailModal" class="hidden">
+    <h3 id="recipeDetailTitle">Detalles de Receta</h3>
+    <div id="recipeDetailContent"></div>
+    <button id="closeRecipeDetailModal" style="margin-top:12px; background:#555; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer;">Cerrar</button>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script>
@@ -140,7 +180,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const categories = ["Despensa", "Nevera", "Congelador", "Limpieza"];
+    const categories = ["Despensa", "Nevera", "Congelador", "Limpieza", "Recetas"];
     let selectedCategory = null;
 
     const categoryBar = document.getElementById('categoryBar');
@@ -162,15 +202,29 @@
     const deleteModal = document.getElementById('deleteModal');
     const deleteProductGrid = document.getElementById('deleteProductGrid');
     const closeDeleteModal = document.getElementById('closeDeleteModal');
+    const recipeView = document.getElementById('recipeView');
+    const recipeList = document.getElementById('recipeList');
+    const recipeStatus = document.getElementById('recipeStatus');
+    const recipeModal = document.getElementById('recipeModal');
+    const recipeDetailModal = document.getElementById('recipeDetailModal');
+    const recipeDetailTitle = document.getElementById('recipeDetailTitle');
+    const recipeDetailContent = document.getElementById('recipeDetailContent');
+    const addRecipeForm = document.getElementById('addRecipeForm');
+    const productSelector = document.getElementById('productSelector');
 
     function openModal() {
       if (!selectedCategory) {
         alert('Selecciona primero una categoría.');
         return;
       }
-      hiddenCategory.value = selectedCategory;
       overlay.classList.add('visible');
-      productModal.classList.add('visible');
+      if (selectedCategory === "Recetas") {
+        recipeModal.classList.add('visible');
+        loadProductSelector();
+      } else {
+        hiddenCategory.value = selectedCategory;
+        productModal.classList.add('visible');
+      }
     }
 
     function closeModal() {
@@ -208,6 +262,15 @@
     deleteProductBtn.addEventListener('click', openDeleteModal);
     deleteOverlay.addEventListener('click', closeDeleteProductModal);
     closeDeleteModal.addEventListener('click', closeDeleteProductModal);
+
+    document.getElementById('closeRecipeModal').addEventListener('click', closeRecipeModal);
+    document.getElementById('closeRecipeDetailModal').addEventListener('click', closeRecipeDetailModal);
+    addRecipeForm.addEventListener('submit', addRecipe);
+    overlay.addEventListener('click', () => {
+      closeModal();
+      closeRecipeModal();
+      closeRecipeDetailModal();
+    });
 
     function renderCategoryButtons() {
       categoryBar.innerHTML = '';
@@ -319,10 +382,17 @@
     function selectCategory(category) {
       selectedCategory = category;
       renderCategoryButtons();
-      productView.classList.add('visible');
-      selectedCategoryTitle.textContent = '';
-      hiddenCategory.value = category;
-      loadProducts();
+      if (category === "Recetas") {
+        productView.classList.remove('visible');
+        recipeView.classList.add('visible');
+        loadRecipes();
+      } else {
+        recipeView.classList.remove('visible');
+        productView.classList.add('visible');
+        selectedCategoryTitle.textContent = '';
+        hiddenCategory.value = category;
+        loadProducts();
+      }
     }
 
     function addProduct(event) {
@@ -567,6 +637,114 @@
     }
 
     form.addEventListener('submit', addProduct);
+
+    function closeRecipeModal() {
+      overlay.classList.remove('visible');
+      recipeModal.classList.remove('visible');
+      addRecipeForm.reset();
+    }
+
+    function closeRecipeDetailModal() {
+      overlay.classList.remove('visible');
+      recipeDetailModal.classList.remove('visible');
+    }
+
+    function loadRecipes() {
+      recipeStatus.textContent = 'Cargando...';
+      recipeList.innerHTML = '';
+      db.ref('recetas').once('value')
+        .then(snapshot => {
+          const recipes = [];
+          snapshot.forEach(item => {
+            recipes.push({ id: item.key, ...item.val() });
+          });
+          recipes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+          if (recipes.length === 0) {
+            recipeStatus.textContent = 'No hay recetas.';
+            return;
+          }
+          recipeStatus.textContent = '';
+          recipes.forEach(recipe => recipeList.appendChild(createRecipeCard(recipe)));
+        })
+        .catch(error => {
+          recipeStatus.textContent = 'Error cargando recetas: ' + error.message;
+          console.error(error);
+        });
+    }
+
+    function createRecipeCard(recipe) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <h4>${recipe.nombre}</h4>
+        <p>${recipe.descripcion || 'Sin descripción'}</p>
+      `;
+      li.onclick = () => showRecipeDetails(recipe);
+      return li;
+    }
+
+    function showRecipeDetails(recipe) {
+      recipeDetailTitle.textContent = recipe.nombre;
+      recipeDetailContent.innerHTML = `<p>${recipe.descripcion || 'Sin descripción'}</p><h4>Productos:</h4><ul>`;
+      if (recipe.productos && recipe.productos.length > 0) {
+        recipe.productos.forEach(prodId => {
+          db.ref('productos/' + prodId).once('value').then(snap => {
+            const prod = snap.val();
+            if (prod) {
+              recipeDetailContent.innerHTML += `<li>${prod.nombre} (${prod.categoria})</li>`;
+            }
+          });
+        });
+      } else {
+        recipeDetailContent.innerHTML += '<li>No hay productos asignados</li>';
+      }
+      recipeDetailContent.innerHTML += '</ul>';
+      overlay.classList.add('visible');
+      recipeDetailModal.classList.add('visible');
+    }
+
+    function loadProductSelector() {
+      productSelector.innerHTML = '';
+      db.ref('productos').once('value')
+        .then(snapshot => {
+          snapshot.forEach(item => {
+            const prod = { id: item.key, ...item.val() };
+            const label = document.createElement('label');
+            label.style.display = 'block';
+            label.innerHTML = `<input type="checkbox" value="${prod.id}"> ${prod.nombre} (${prod.categoria})`;
+            productSelector.appendChild(label);
+          });
+        })
+        .catch(error => {
+          console.error('Error cargando productos para selector:', error);
+        });
+    }
+
+    function addRecipe(event) {
+      event.preventDefault();
+      const nombre = document.getElementById('recipeName').value.trim();
+      const descripcion = document.getElementById('recipeDescription').value.trim();
+      const selectedProducts = Array.from(productSelector.querySelectorAll('input:checked')).map(cb => cb.value);
+      if (!nombre) {
+        alert('Ingresa un nombre para la receta.');
+        return;
+      }
+      const newRecipeRef = db.ref('recetas').push();
+      newRecipeRef.set({
+        nombre,
+        descripcion,
+        productos: selectedProducts,
+        creadoEn: firebase.database.ServerValue.TIMESTAMP
+      })
+      .then(() => {
+        recipeStatus.textContent = `Receta "${nombre}" creada.`;
+        closeRecipeModal();
+        loadRecipes();
+      })
+      .catch(error => {
+        recipeStatus.textContent = 'Error creando receta: ' + error.message;
+        console.error(error);
+      });
+    }
 
     renderCategoryButtons();
     loadShoppingList();
