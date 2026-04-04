@@ -18,11 +18,11 @@
     #recipeView.visible { display: block; }
     #menuView { display: none; }
     #menuView.visible { display: block; }
-    #menuGrid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
-    #menuGrid .day { background: #2a2a2a; border-radius: 8px; padding: 16px; }
-    #menuGrid .day h3 { margin: 0 0 12px; color: #ffffff; }
-    #menuGrid .day label { display: block; margin: 8px 0 4px; color: #e0e0e0; font-weight: bold; }
-    #menuGrid .day select { width: 100%; padding: 8px; background: #333; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; }
+    #menuList { list-style: none; padding: 0; margin-top: 16px; }
+    #menuList li { background: #2a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    #menuList li h3 { margin: 0 0 12px; color: #ffffff; }
+    #menuList li label { display: block; margin: 8px 0 4px; color: #e0e0e0; font-weight: bold; }
+    #menuList li select { width: 100%; padding: 8px; background: #333; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; }
     #shoppingList { max-width: 900px; margin: 0 auto 80px; padding: 16px; display: none; background: #1f1f1f; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
     #shoppingList.visible { display: block; }
     #shoppingItems { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 0; padding: 0; }
@@ -126,7 +126,7 @@
   <section id="menuView" class="hidden">
     <h2>Menú Semanal</h2>
     <p id="menuStatus">Cargando...</p>
-    <div id="menuGrid" style="display: grid; grid-template-columns: 120px repeat(7, 1fr); gap: 8px; margin-top: 16px;"></div>
+    <ul id="menuList" style="list-style: none; padding: 0; margin-top: 16px;"></ul>
   </section>
 
   <button id="fab">+</button>
@@ -227,7 +227,7 @@
     const addRecipeForm = document.getElementById('addRecipeForm');
     const productSelector = document.getElementById('productSelector');
     const menuView = document.getElementById('menuView');
-    const menuGrid = document.getElementById('menuGrid');
+    const menuList = document.getElementById('menuList');
     const menuStatus = document.getElementById('menuStatus');
 
     function openModal() {
@@ -777,28 +777,27 @@
 
     function loadMenu() {
       menuStatus.textContent = 'Cargando...';
-      menuGrid.innerHTML = '';
+      menuList.innerHTML = '';
       const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
       const meals = ['Comida', 'Cena'];
 
       days.forEach(day => {
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'day';
-        dayDiv.innerHTML = `<h3>${day}</h3>`;
+        const dayLi = document.createElement('li');
+        dayLi.innerHTML = `<h3>${day}</h3>`;
 
         meals.forEach(meal => {
           const label = document.createElement('label');
           label.textContent = meal;
-          dayDiv.appendChild(label);
+          dayLi.appendChild(label);
 
           const select = document.createElement('select');
           select.dataset.day = day.toLowerCase();
           select.dataset.meal = meal.toLowerCase();
           select.innerHTML = '<option value="">-- Seleccionar --</option>';
-          dayDiv.appendChild(select);
+          dayLi.appendChild(select);
         });
 
-        menuGrid.appendChild(dayDiv);
+        menuList.appendChild(dayLi);
       });
 
       // Load recipes for selects
@@ -809,7 +808,7 @@
         });
         recipes.sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-        const selects = menuGrid.querySelectorAll('select');
+        const selects = menuList.querySelectorAll('select');
         selects.forEach(select => {
           recipes.forEach(recipe => {
             const option = document.createElement('option');
@@ -840,7 +839,7 @@
 
     function saveMenu() {
       const menuData = {};
-      const selects = menuGrid.querySelectorAll('select');
+        const selects = menuList.querySelectorAll('select');
       selects.forEach(select => {
         const day = select.dataset.day;
         const meal = select.dataset.meal;
