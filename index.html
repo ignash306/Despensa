@@ -705,7 +705,27 @@
         });
     }
 
-    form.addEventListener('submit', addProduct);
+    function deductIngredients(day, meal) {
+      const select = menuList.querySelector(`select[data-day="${day}"][data-meal="${meal}"]`);
+      const recipeId = select.value;
+      if (!recipeId) return;
+
+      db.ref('recetas/' + recipeId).once('value').then(snap => {
+        const recipe = snap.val();
+        if (recipe && recipe.productos && Array.isArray(recipe.productos)) {
+          recipe.productos.forEach(prodId => {
+            db.ref('productos/' + prodId).once('value').then(prodSnap => {
+              const prod = prodSnap.val();
+              if (prod && typeof prod.cantidad === 'number' && prod.cantidad > 0) {
+                const newQty = prod.cantidad - 1;
+                db.ref('productos/' + prodId).update({ cantidad: newQty });
+                // Si estás en la categoría del producto, podrías recargar, pero por ahora solo DB
+              }
+            }).catch(error => console.error('Error obteniendo producto:', error));
+          });
+        }
+      }).catch(error => console.error('Error obteniendo receta:', error));
+    }
 
     function closeRecipeModal() {
       overlay.classList.remove('visible');
@@ -898,7 +918,12 @@
             if (menuData[day] && menuData[day][meal] && menuData[day][meal].completado) {
               checkbox.checked = true;
             }
-            checkbox.addEventListener('change', saveMenu);
+            checkbox.addEventListener('change', (e) => {
+              saveMenu();
+              if (e.target.checked) {
+                deductIngredients(day, meal);
+              }
+            });
           });
           menuStatus.textContent = '';
         });
