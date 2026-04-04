@@ -74,8 +74,8 @@
     #availableList li:last-child, #missingList li:last-child { border-bottom: none; }
     button.actionDel { background: #d32f2f; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor:pointer; }
     #status { margin-top: 8px; font-weight: bold; color: #4caf50; }
-    #fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #3f51b5; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); }
-    #toggleShoppingList { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #ff9800; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); }
+    #fab { position: fixed; bottom: 140px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #3f51b5; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); display: none; }
+    #toggleShoppingList { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #ff9800; color: white; font-size: 2.2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); display: none; }
     #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); display: none; }
     #overlay.visible { display: block; }
     #deleteOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.5); display: none; }
@@ -164,8 +164,9 @@
   </section>
 
   <button id="fab">+</button>
-  <button id="deleteProductBtn" style="position: fixed; bottom: 140px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #d32f2f; color: white; font-size: 1.5rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3);">🗑️</button>
+  <button id="deleteProductBtn" style="position: fixed; bottom: 200px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #d32f2f; color: white; font-size: 1.5rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3); display: none;">🗑️</button>
   <button id="toggleShoppingList">🛒</button>
+  <button id="menuBtn" style="position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #4caf50; color: white; font-size: 2rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3);">☰</button>
 
   <div id="deleteOverlay"></div>
   <div id="deleteModal">
@@ -258,6 +259,7 @@
     const deleteModal = document.getElementById('deleteModal');
     const deleteProductGrid = document.getElementById('deleteProductGrid');
     const closeDeleteModal = document.getElementById('closeDeleteModal');
+    const menuBtn = document.getElementById('menuBtn');
     const recipeView = document.getElementById('recipeView');
     const recipeList = document.getElementById('recipeList');
     const recipeStatus = document.getElementById('recipeStatus');
@@ -326,6 +328,13 @@
     deleteProductBtn.addEventListener('click', openDeleteModal);
     deleteOverlay.addEventListener('click', closeDeleteProductModal);
     closeDeleteModal.addEventListener('click', closeDeleteProductModal);
+
+    menuBtn.addEventListener('click', () => {
+      const fabVisible = fab.style.display !== 'none';
+      fab.style.display = fabVisible ? 'none' : 'block';
+      deleteProductBtn.style.display = fabVisible ? 'none' : 'block';
+      toggleShoppingList.style.display = fabVisible ? 'none' : 'block';
+    });
 
     document.getElementById('closeRecipeModal').addEventListener('click', closeRecipeModal);
     document.getElementById('closeRecipeDetailModal').addEventListener('click', closeRecipeDetailModal);
