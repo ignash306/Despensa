@@ -126,6 +126,7 @@
   <section id="menuView" class="hidden">
     <h2>Menú Semanal</h2>
     <p id="menuStatus">Cargando...</p>
+    <button id="clearMenu" style="margin-bottom: 16px; background: #d32f2f; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer;">Limpiar Menú</button>
     <ul id="menuList" style="list-style: none; padding: 0; margin-top: 16px;"></ul>
   </section>
 
@@ -228,6 +229,7 @@
     const productSelector = document.getElementById('productSelector');
     const menuView = document.getElementById('menuView');
     const menuList = document.getElementById('menuList');
+    const clearMenu = document.getElementById('clearMenu');
     const menuStatus = document.getElementById('menuStatus');
 
     function openModal() {
@@ -288,10 +290,18 @@
     document.getElementById('closeRecipeModal').addEventListener('click', closeRecipeModal);
     document.getElementById('closeRecipeDetailModal').addEventListener('click', closeRecipeDetailModal);
     addRecipeForm.addEventListener('submit', addRecipe);
-    overlay.addEventListener('click', () => {
-      closeModal();
-      closeRecipeModal();
-      closeRecipeDetailModal();
+    clearMenu.addEventListener('click', () => {
+      if (confirm('¿Limpiar todo el menú semanal?')) {
+        db.ref('menu/semanal').set({})
+          .then(() => {
+            menuStatus.textContent = 'Menú limpiado.';
+            loadMenu();
+          })
+          .catch(error => {
+            menuStatus.textContent = 'Error limpiando menú: ' + error.message;
+            console.error(error);
+          });
+      }
     });
 
     function renderCategoryButtons() {
