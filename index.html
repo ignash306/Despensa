@@ -16,6 +16,12 @@
     #productView.visible { display: block; }
     #recipeView { display: none; }
     #recipeView.visible { display: block; }
+    #menuView { display: none; }
+    #menuView.visible { display: block; }
+    #menuGrid { font-size: 0.9rem; }
+    #menuGrid > div { padding: 8px; background: #2a2a2a; border-radius: 6px; color: #e0e0e0; }
+    #menuGrid > div:first-child { background: #1f1f1f; font-weight: bold; }
+    #menuGrid select { width: 100%; padding: 4px; background: #333; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; }
     #shoppingList { max-width: 900px; margin: 0 auto 80px; padding: 16px; display: none; background: #1f1f1f; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
     #shoppingList.visible { display: block; }
     #shoppingItems { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 0; padding: 0; }
@@ -116,6 +122,12 @@
     <ul id="recipeList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 0; padding: 0;"></ul>
   </section>
 
+  <section id="menuView" class="hidden">
+    <h2>Menú Semanal</h2>
+    <p id="menuStatus">Cargando...</p>
+    <div id="menuGrid" style="display: grid; grid-template-columns: 120px repeat(7, 1fr); gap: 8px; margin-top: 16px;"></div>
+  </section>
+
   <button id="fab">+</button>
   <button id="deleteProductBtn" style="position: fixed; bottom: 140px; right: 20px; width: 56px; height: 56px; border-radius: 50%; border: none; background: #d32f2f; color: white; font-size: 1.5rem; cursor: pointer; box-shadow: 0 5px 14px rgba(0,0,0,.3);">🗑️</button>
   <button id="toggleShoppingList">🛒</button>
@@ -182,7 +194,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const categories = ["Despensa", "Nevera", "Congelador", "Limpieza", "Recetas"];
+    const categories = ["Despensa", "Nevera", "Congelador", "Limpieza", "Recetas", "Menú"];
     let selectedCategory = null;
 
     const categoryBar = document.getElementById('categoryBar');
@@ -213,10 +225,17 @@
     const recipeDetailContent = document.getElementById('recipeDetailContent');
     const addRecipeForm = document.getElementById('addRecipeForm');
     const productSelector = document.getElementById('productSelector');
+    const menuView = document.getElementById('menuView');
+    const menuGrid = document.getElementById('menuGrid');
+    const menuStatus = document.getElementById('menuStatus');
 
     function openModal() {
       if (!selectedCategory) {
         alert('Selecciona primero una categoría.');
+        return;
+      }
+      if (selectedCategory === "Menú") {
+        // No modal for menu, it's editable in place
         return;
       }
       overlay.classList.add('visible');
@@ -387,9 +406,16 @@
       if (category === "Recetas") {
         productView.classList.remove('visible');
         recipeView.classList.add('visible');
+        menuView.classList.remove('visible');
         loadRecipes();
+      } else if (category === "Menú") {
+        productView.classList.remove('visible');
+        recipeView.classList.remove('visible');
+        menuView.classList.add('visible');
+        loadMenu();
       } else {
         recipeView.classList.remove('visible');
+        menuView.classList.remove('visible');
         productView.classList.add('visible');
         selectedCategoryTitle.textContent = '';
         hiddenCategory.value = category;
@@ -746,6 +772,93 @@
         recipeStatus.textContent = 'Error creando receta: ' + error.message;
         console.error(error);
       });
+    }
+
+    function loadMenu() {
+      menuStatus.textContent = 'Cargando...';
+      menuGrid.innerHTML = '';
+      const days = ['Día', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+      const meals = ['Desayuno', 'Comida', 'Cena'];
+
+      // Header row
+      days.forEach(day => {
+        const div = document.createElement('div');
+        div.textContent = day;
+        menuGrid.appendChild(div);
+      });
+
+      // Meal rows
+      meals.forEach(meal => {
+        const mealDiv = document.createElement('div');
+        mealDiv.textContent = meal;
+        menuGrid.appendChild(mealDiv);
+
+        days.slice(1).forEach(day => { // Skip 'Día'
+          const select = document.createElement('select');
+          select.dataset.day = day.toLowerCase();
+          select.dataset.meal = meal.toLowerCase();
+          select.innerHTML = '<option value="">-- Seleccionar --</option>';
+          menuGrid.appendChild(select);
+        });
+      });
+
+      // Load recipes for selects
+      db.ref('recetas').once('value').then(snapshot => {
+        const recipes = [];
+        snapshot.forEach(item => {
+          recipes.push({ id: item.key, ...item.val() });
+        });
+        recipes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        const selects = menuGrid.querySelectorAll('select');
+        selects.forEach(select => {
+          recipes.forEach(recipe => {
+            const option = document.createElement('option');
+            option.value = recipe.id;
+            option.textContent = recipe.nombre;
+            select.appendChild(option);
+          });
+        });
+
+        // Load current menu
+        db.ref('menu/semanal').once('value').then(snapshot => {
+          const menuData = snapshot.val() || {};
+          selects.forEach(select => {
+            const day = select.dataset.day;
+            const meal = select.dataset.meal;
+            if (menuData[day] && menuData[day][meal]) {
+              select.value = menuData[day][meal];
+            }
+            select.addEventListener('change', saveMenu);
+          });
+          menuStatus.textContent = '';
+        });
+      }).catch(error => {
+        menuStatus.textContent = 'Error cargando menú: ' + error.message;
+        console.error(error);
+      });
+    }
+
+    function saveMenu() {
+      const menuData = {};
+      const selects = menuGrid.querySelectorAll('select');
+      selects.forEach(select => {
+        const day = select.dataset.day;
+        const meal = select.dataset.meal;
+        const recipeId = select.value;
+        if (!menuData[day]) menuData[day] = {};
+        menuData[day][meal] = recipeId || null;
+      });
+
+      db.ref('menu/semanal').set(menuData)
+        .then(() => {
+          menuStatus.textContent = 'Menú guardado.';
+          setTimeout(() => menuStatus.textContent = '', 2000);
+        })
+        .catch(error => {
+          menuStatus.textContent = 'Error guardando menú: ' + error.message;
+          console.error(error);
+        });
     }
 
     renderCategoryButtons();
