@@ -6,9 +6,18 @@
   <title>Gestión Cocina - Compra</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #121212; color: #e0e0e0; }
+    @keyframes glow {
+      from { box-shadow: 0 6px 12px rgba(0,0,0,0.4), 0 0 20px rgba(255, 107, 107, 0.5); }
+      to { box-shadow: 0 6px 12px rgba(0,0,0,0.4), 0 0 30px rgba(255, 107, 107, 0.8); }
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
     h2, h3 { color: #ffffff; }
     p { color: #e0e0e0; }
-    header { background: #1f1f1f; color: white; padding: 24px 16px; text-align: center; border-bottom: 2px solid #3f51b5; }
+    header { background: #1f1f1f; color: white; padding: 24px 16px; text-align: center; }
     #categoryBar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 10px; overflow-x: auto; border-bottom: 2px solid #444; width: fit-content; margin: 0 auto; justify-items: center; }
     .categoryBtn { padding: 16px 20px; border: 1px solid #666; border-radius: 8px; background: transparent; color: #e0e0e0; cursor: pointer; font-size: 1rem; font-weight: 600; position: relative; white-space: nowrap; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
     .categoryBtn::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 3px; background: linear-gradient(90deg, #3f51b5, #667eea); transition: width 0.3s ease; }
@@ -127,7 +136,7 @@
 </head>
 <body>
   <header>
-    <h1 style="margin:0; font-size:2rem; color:#ffffff;">COMPRA</h1>
+    <h1 style="margin:0; font-size:3rem; background: linear-gradient(45deg, #ff6b6b 0%, #ffa500 50%, #ff6b6b 100%); background-size: 200% 200%; color: white; padding: 15px 25px; border-radius: 15px; box-shadow: 0 6px 12px rgba(0,0,0,0.4); font-family: 'Lucida Grande', 'Lucida Sans Unicode', sans-serif; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.5); animation: glow 2s ease-in-out infinite alternate, gradientShift 3s ease infinite;">Gestión de Cocina</h1>
   </header>
   <section id="categoryBar"></section>
 
