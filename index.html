@@ -257,6 +257,7 @@
       { name: 'Recetas', icon: '📖' },
       { name: 'Menú', icon: '📅' }
     ];
+    const productCategories = ['Despensa', 'Nevera', 'Congelador', 'Limpieza'];
     let selectedCategory = null;
 
     const categoryBar = document.getElementById('categoryBar');
@@ -299,16 +300,19 @@
         return;
       }
       if (selectedCategory === "Menú") {
-        // No modal for menu, it's editable in place
+        alert('No se pueden añadir productos en el menú. Selecciona una categoría de productos.');
         return;
       }
       overlay.classList.add('visible');
       if (selectedCategory === "Recetas") {
         recipeModal.classList.add('visible');
         loadProductSelector();
-      } else {
+      } else if (productCategories.includes(selectedCategory)) {
         hiddenCategory.value = selectedCategory;
         productModal.classList.add('visible');
+      } else {
+        hiddenCategory.value = selectedCategory;
+        alert('Selecciona una categoría válida de productos.');
       }
     }
 
@@ -321,6 +325,7 @@
     fab.addEventListener('click', openModal);
     overlay.addEventListener('click', closeModal);
     document.getElementById('closeModal').addEventListener('click', closeModal);
+    form.addEventListener('submit', addProduct);
 
     document.getElementById('uploadImageBtn').addEventListener('click', () => {
       document.getElementById('productImage').click();
@@ -406,7 +411,7 @@
           });
 
           if (!products.length) {
-            status.textContent = '';
+            status.textContent = 'No hay productos en esta categoría. Usa + para añadir uno.';
             return;
           }
 
@@ -489,16 +494,25 @@
       selectedCategory = category;
       renderCategoryButtons();
       if (category === "Recetas") {
+        fab.style.display = 'block';
+        deleteProductBtn.style.display = 'none';
+        toggleShoppingList.style.display = 'block';
         productView.classList.remove('visible');
         recipeView.classList.add('visible');
         menuView.classList.remove('visible');
         loadRecipes();
       } else if (category === "Menú") {
+        fab.style.display = 'none';
+        deleteProductBtn.style.display = 'none';
+        toggleShoppingList.style.display = 'block';
         productView.classList.remove('visible');
         recipeView.classList.remove('visible');
         menuView.classList.add('visible');
         loadMenu();
       } else {
+        fab.style.display = 'block';
+        deleteProductBtn.style.display = 'block';
+        toggleShoppingList.style.display = 'block';
         recipeView.classList.remove('visible');
         menuView.classList.remove('visible');
         productView.classList.add('visible');
@@ -512,10 +526,17 @@
       event.preventDefault();
       const nombre = document.getElementById('productName').value.trim();
       const imagen = document.getElementById('productImageData').value || null;
-      const categoria = document.getElementById('productCategory').value;
+      let categoria = document.getElementById('productCategory').value || selectedCategory;
 
-      if (!nombre || !categoria) {
+      console.debug('addProduct request', { nombre, categoria, selectedCategory, imagen });
+
+      if (!nombre) {
         status.textContent = 'Completa el nombre del producto.';
+        return;
+      }
+      if (!categoria || !productCategories.includes(categoria)) {
+        status.textContent = 'Seleccione una categoría de producto válida antes de guardar.';
+        alert('Selecciona una categoría válida de productos antes de guardar.');
         return;
       }
 
@@ -532,11 +553,13 @@
         status.textContent = `Producto "${nombre}" agregado en ${categoria}.`;
         form.reset();
         document.getElementById('imagePreview').innerHTML = '';
+        closeModal();
         if (selectedCategory === categoria) loadProducts();
       })
       .catch(error => {
         status.textContent = 'Error añadiendo producto: ' + error.message;
-        console.error(error);
+        alert('Error guardando producto: ' + error.message);
+        console.error('Error addProduct:', error);
       });
     }
 
